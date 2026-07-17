@@ -120,6 +120,45 @@ drop policy if exists "members can send messages" on public.messages;
 create policy "members can send messages"
   on public.messages for insert to authenticated with check (auth.uid() = author_id);
 
+-- ============ Notes (manual + ticket-completion notes) ============
+create table if not exists public.notes (
+  id uuid primary key default gen_random_uuid(),
+  heading text not null,
+  body text not null default '',
+  kind text not null default 'manual' check (kind in ('manual', 'ticket')),
+  created_by uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  author_name text not null default '',
+  created_at timestamptz not null default now()
+);
+
+alter table public.notes enable row level security;
+
+drop policy if exists "members can read notes" on public.notes;
+create policy "members can read notes"
+  on public.notes for select to authenticated using (true);
+drop policy if exists "members can add notes" on public.notes;
+create policy "members can add notes"
+  on public.notes for insert to authenticated with check (true);
+
+-- ============ Improvements (suggestions for the tracker itself) ============
+create table if not exists public.improvements (
+  id uuid primary key default gen_random_uuid(),
+  heading text not null,
+  body text not null default '',
+  created_by uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  author_name text not null default '',
+  created_at timestamptz not null default now()
+);
+
+alter table public.improvements enable row level security;
+
+drop policy if exists "members can read improvements" on public.improvements;
+create policy "members can read improvements"
+  on public.improvements for select to authenticated using (true);
+drop policy if exists "members can add improvements" on public.improvements;
+create policy "members can add improvements"
+  on public.improvements for insert to authenticated with check (true);
+
 -- Helpful indexes
 create index if not exists tickets_feature_id_idx on public.tickets (feature_id);
 create index if not exists tickets_owner_id_idx on public.tickets (owner_id);

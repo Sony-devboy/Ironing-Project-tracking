@@ -37,6 +37,25 @@ export interface ProfileRow {
   display_name: string;
 }
 
+export interface NoteRow {
+  id: string;
+  heading: string;
+  body: string;
+  kind: "manual" | "ticket";
+  created_by: string;
+  author_name: string;
+  created_at: string;
+}
+
+export interface ImprovementRow {
+  id: string;
+  heading: string;
+  body: string;
+  created_by: string;
+  author_name: string;
+  created_at: string;
+}
+
 export interface MessageRow {
   id: string;
   author_id: string;
@@ -116,7 +135,30 @@ export const ACTION_LABELS: Record<string, string> = {
   took_ticket: "took ticket",
   dropped_ticket: "dropped ticket",
   updated_display_name: "changed display name to",
+  added_note: "added note",
+  added_improvement: "suggested improvement",
 };
+
+// Insert a note and log it. Used by the Notes tab (manual) and by the
+// ticket-completion popup (kind: "ticket", heading = ticket title).
+export async function addNote(
+  supabase: SupabaseClient,
+  user: User | null,
+  heading: string,
+  body: string,
+  kind: "manual" | "ticket"
+): Promise<{ error: { message?: string } | null }> {
+  const { error } = await supabase.from("notes").insert({
+    heading,
+    body,
+    kind,
+    author_name: displayName(user),
+  });
+  if (!error) {
+    await recordHistory(supabase, user, "added_note", "note", heading);
+  }
+  return { error };
+}
 
 export function actionLabel(action: string): string {
   return ACTION_LABELS[action] ?? action.replaceAll("_", " ");

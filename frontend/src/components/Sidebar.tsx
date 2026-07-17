@@ -19,6 +19,7 @@ const navItems = [
   { label: "Company Info", href: "/company", id: "nav-company", abbr: "CI", membersOnly: true },
   { label: "History", href: "/history", id: "nav-history", abbr: "HX", membersOnly: true },
   { label: "Local Chat", href: "/chat", id: "nav-chat", abbr: "LC", membersOnly: true },
+  { label: "Improvements", href: "/improvements", id: "nav-improvements", abbr: "IM", membersOnly: true },
   { label: "Settings", href: "/settings", id: "nav-settings", abbr: "S", membersOnly: false },
 ];
 

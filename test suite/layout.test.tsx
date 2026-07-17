@@ -219,6 +219,10 @@ describe("IRON Layout & Theme Test Suite", () => {
     expect(chatLink).toHaveAttribute("href", "/chat");
     expect(chatLink).toHaveTextContent("Local Chat");
 
+    const improvementsLink = screen.getByTestId("nav-improvements");
+    expect(improvementsLink).toHaveAttribute("href", "/improvements");
+    expect(improvementsLink).toHaveTextContent("Improvements");
+
     const homeLink = screen.getByTestId("nav-home");
     expect(homeLink).toHaveAttribute("href", "/");
     expect(homeLink).toHaveTextContent("Home");

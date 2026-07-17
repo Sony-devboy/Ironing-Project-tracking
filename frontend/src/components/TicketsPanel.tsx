@@ -3,8 +3,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { FeatureRow, TicketRow, ProfileMap, displayName, isMissingTable, loadProfiles, nameFor, recordHistory } from "@/utils/appData";
+import { FeatureRow, TicketRow, ProfileMap, addNote, displayName, isMissingTable, loadProfiles, nameFor, recordHistory } from "@/utils/appData";
 import { SetupNotice } from "@/components/FeaturesBoard";
+import TicketNoteModal from "@/components/TicketNoteModal";
 
 type PanelState = "loading" | "ready" | "no-tables" | "error";
 
@@ -14,6 +15,7 @@ export default function TicketsPanel() {
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [profiles, setProfiles] = useState<ProfileMap>({});
+  const [completing, setCompleting] = useState<{ ticket: TicketRow; featureName: string } | null>(null);
   const supabase = createClient();
 
   const load = useCallback(async () => {
@@ -64,20 +66,38 @@ export default function TicketsPanel() {
     }
   }
 
-  async function toggleTicket(ticket: TicketRow, featureName: string) {
+  function toggleTicket(ticket: TicketRow, featureName: string) {
+    if (!ticket.done) {
+      setCompleting({ ticket, featureName });
+      return;
+    }
+    reopenTicket(ticket, featureName);
+  }
+
+  async function reopenTicket(ticket: TicketRow, featureName: string) {
     const { error } = await supabase
       .from("tickets")
-      .update({ done: !ticket.done })
+      .update({ done: false })
       .eq("id", ticket.id);
     if (!error) {
-      await recordHistory(
-        supabase,
-        user,
-        ticket.done ? "reopened_ticket" : "completed_ticket",
-        "ticket",
-        ticket.title,
-        { feature: featureName }
-      );
+      await recordHistory(supabase, user, "reopened_ticket", "ticket", ticket.title, { feature: featureName });
+      await load();
+    }
+  }
+
+  async function completeTicket(note: string) {
+    if (!completing) return;
+    const { ticket, featureName } = completing;
+    setCompleting(null);
+    const { error } = await supabase
+      .from("tickets")
+      .update({ done: true })
+      .eq("id", ticket.id);
+    if (!error) {
+      await recordHistory(supabase, user, "completed_ticket", "ticket", ticket.title, { feature: featureName });
+      if (note) {
+        await addNote(supabase, user, ticket.title, note, "ticket");
+      }
       await load();
     }
   }
@@ -94,6 +114,13 @@ export default function TicketsPanel() {
 
   return (
     <div data-testid="tickets-panel" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      {completing && (
+        <TicketNoteModal
+          ticketTitle={completing.ticket.title}
+          onComplete={completeTicket}
+          onCancel={() => setCompleting(null)}
+        />
+      )}
       {features
         .filter((f) => tickets.some((t) => t.feature_id === f.id))
         .map((feature) => (

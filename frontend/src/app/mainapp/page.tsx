@@ -5,6 +5,7 @@ import AuthGuard from "@/components/AuthGuard";
 import OverviewPanel from "@/components/OverviewPanel";
 import FeaturesBoard from "@/components/FeaturesBoard";
 import TicketsPanel from "@/components/TicketsPanel";
+import NotesPanel from "@/components/NotesPanel";
 
 type TabId = "overview" | "features" | "tickets" | "notes";
 
@@ -66,8 +67,8 @@ export default function MainAppPage() {
         )}
         {activeTab === "notes" && (
           <div data-testid="content-notes">
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "8px" }}>App Notes</h2>
-            <p style={{ color: "var(--text-secondary)" }}>Notes - WIP</p>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "16px" }}>App Notes</h2>
+            <NotesPanel />
           </div>
         )}
       </div>

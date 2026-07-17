@@ -3,7 +3,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { FeatureRow, TicketRow, isMissingTable, recordHistory } from "@/utils/appData";
+import { FeatureRow, TicketRow, addNote, isMissingTable, recordHistory } from "@/utils/appData";
+import TicketNoteModal from "@/components/TicketNoteModal";
 
 type CardState = "checking" | "anon" | "loading" | "ready" | "no-tables" | "error";
 
@@ -12,6 +13,7 @@ export default function MyTicketsCard() {
   const [user, setUser] = useState<User | null>(null);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [features, setFeatures] = useState<FeatureRow[]>([]);
+  const [completing, setCompleting] = useState<TicketRow | null>(null);
   const supabase = createClient();
 
   const load = useCallback(async (currentUser: User) => {
@@ -51,22 +53,42 @@ export default function MyTicketsCard() {
     };
   }, [supabase, load]);
 
-  async function toggleTicket(ticket: TicketRow) {
+  function toggleTicket(ticket: TicketRow) {
+    if (!user) return;
+    if (!ticket.done) {
+      setCompleting(ticket);
+      return;
+    }
+    reopenTicket(ticket);
+  }
+
+  async function reopenTicket(ticket: TicketRow) {
     if (!user) return;
     const featureName = features.find((f) => f.id === ticket.feature_id)?.name ?? "";
     const { error } = await supabase
       .from("tickets")
-      .update({ done: !ticket.done })
+      .update({ done: false })
       .eq("id", ticket.id);
     if (!error) {
-      await recordHistory(
-        supabase,
-        user,
-        ticket.done ? "reopened_ticket" : "completed_ticket",
-        "ticket",
-        ticket.title,
-        { feature: featureName }
-      );
+      await recordHistory(supabase, user, "reopened_ticket", "ticket", ticket.title, { feature: featureName });
+      await load(user);
+    }
+  }
+
+  async function completeTicket(note: string) {
+    if (!user || !completing) return;
+    const ticket = completing;
+    setCompleting(null);
+    const featureName = features.find((f) => f.id === ticket.feature_id)?.name ?? "";
+    const { error } = await supabase
+      .from("tickets")
+      .update({ done: true })
+      .eq("id", ticket.id);
+    if (!error) {
+      await recordHistory(supabase, user, "completed_ticket", "ticket", ticket.title, { feature: featureName });
+      if (note) {
+        await addNote(supabase, user, ticket.title, note, "ticket");
+      }
       await load(user);
     }
   }
@@ -76,6 +98,13 @@ export default function MyTicketsCard() {
 
   return (
     <div className="card" data-testid="my-tickets-card">
+      {completing && (
+        <TicketNoteModal
+          ticketTitle={completing.title}
+          onComplete={completeTicket}
+          onCancel={() => setCompleting(null)}
+        />
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
         <span aria-hidden="true" style={{ fontSize: "1.5rem" }}>🎯</span>
         {state === "ready" && (

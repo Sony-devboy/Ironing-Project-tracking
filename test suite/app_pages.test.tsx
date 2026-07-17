@@ -5,6 +5,7 @@ import CompanyInfoPage from "@/app/company/page";
 import SettingsPage from "@/app/settings/page";
 import HistoryPage from "@/app/history/page";
 import ChatPage from "@/app/chat/page";
+import ImprovementsPage from "@/app/improvements/page";
 
 const loggedInSession = {
   data: {
@@ -96,11 +97,13 @@ describe("Subpages and Tab Selectors Test Suite", () => {
       expect(screen.getByTestId("content-tickets")).toBeInTheDocument();
       expect(await screen.findByTestId("tickets-empty")).toBeInTheDocument();
 
-      // Click Notes Tab
+      // Click Notes Tab -> live notes panel with add form
       fireEvent.click(tabNotes);
       expect(tabNotes).toHaveClass("active");
       expect(screen.getByTestId("content-notes")).toBeInTheDocument();
-      expect(screen.getByText("Notes - WIP")).toBeInTheDocument();
+      expect(await screen.findByTestId("note-heading-input")).toBeInTheDocument();
+      expect(screen.getByTestId("note-body-input")).toBeInTheDocument();
+      expect(screen.getByTestId("notes-empty")).toBeInTheDocument();
     });
 
     test("shows sign-in required lock instead of content when logged out", async () => {
@@ -195,6 +198,31 @@ describe("Subpages and Tab Selectors Test Suite", () => {
 
       expect(await screen.findByTestId("auth-guard-locked")).toBeInTheDocument();
       expect(screen.queryByTestId("chat-room")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Improvements Page", () => {
+    test("renders add button and empty state for a logged-in member", async () => {
+      render(<ImprovementsPage />);
+
+      expect(await screen.findByText("Improvements")).toBeInTheDocument();
+      const addBtn = await screen.findByTestId("show-improvement-form-btn");
+      expect(screen.getByTestId("improvements-empty")).toBeInTheDocument();
+
+      // Clicking the add button reveals the heading + description form
+      fireEvent.click(addBtn);
+      expect(screen.getByTestId("improvement-heading-input")).toBeInTheDocument();
+      expect(screen.getByTestId("improvement-body-input")).toBeInTheDocument();
+      expect(screen.getByTestId("add-improvement-btn")).toBeDisabled();
+    });
+
+    test("shows sign-in required lock when logged out", async () => {
+      mockGetSession.mockResolvedValueOnce(loggedOutSession);
+
+      render(<ImprovementsPage />);
+
+      expect(await screen.findByTestId("auth-guard-locked")).toBeInTheDocument();
+      expect(screen.queryByTestId("improvements-board")).not.toBeInTheDocument();
     });
   });
 
