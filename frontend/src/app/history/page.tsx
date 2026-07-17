@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
 import { createClient } from "@/utils/supabase/client";
-import { HistoryRow, actionLabel, formatTime, isMissingTable } from "@/utils/appData";
+import { HistoryRow, ProfileMap, actionLabel, formatTime, isMissingTable, loadProfiles, nameFor } from "@/utils/appData";
 import { SetupNotice } from "@/components/FeaturesBoard";
 
 type PanelState = "loading" | "ready" | "no-tables" | "error";
@@ -17,20 +17,25 @@ interface ArchivedTicket {
 function HistoryList() {
   const [state, setState] = useState<PanelState>("loading");
   const [entries, setEntries] = useState<HistoryRow[]>([]);
+  const [profiles, setProfiles] = useState<ProfileMap>({});
   const supabase = createClient();
 
   useEffect(() => {
     async function load() {
-      const { data, error } = await supabase
-        .from("history")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200);
+      const [{ data, error }, profileMap] = await Promise.all([
+        supabase
+          .from("history")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        loadProfiles(supabase),
+      ]);
       if (error) {
         setState(isMissingTable(error) ? "no-tables" : "error");
         return;
       }
       setEntries((data as HistoryRow[]) ?? []);
+      setProfiles(profileMap);
       setState("ready");
     }
     load();
@@ -55,7 +60,7 @@ function HistoryList() {
         return (
           <div className="card" key={entry.id} style={{ padding: "16px 20px" }}>
             <p style={{ fontSize: "0.9rem" }}>
-              <strong>{entry.actor_name}</strong>{" "}
+              <strong>{nameFor(profiles, entry.actor_id, entry.actor_name)}</strong>{" "}
               <span style={{ color: "var(--text-secondary)" }}>{actionLabel(entry.action)}</span>{" "}
               <strong style={{ overflowWrap: "anywhere" }}>{entry.entity_name}</strong>
             </p>

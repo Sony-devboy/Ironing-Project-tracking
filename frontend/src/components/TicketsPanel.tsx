@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { FeatureRow, TicketRow, isMissingTable, recordHistory, formatTime } from "@/utils/appData";
+import { FeatureRow, TicketRow, ProfileMap, displayName, isMissingTable, loadProfiles, nameFor, recordHistory } from "@/utils/appData";
 import { SetupNotice } from "@/components/FeaturesBoard";
 
 type PanelState = "loading" | "ready" | "no-tables" | "error";
@@ -13,12 +13,14 @@ export default function TicketsPanel() {
   const [features, setFeatures] = useState<FeatureRow[]>([]);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [user, setUser] = useState<User | null>(null);
+  const [profiles, setProfiles] = useState<ProfileMap>({});
   const supabase = createClient();
 
   const load = useCallback(async () => {
-    const [f, t] = await Promise.all([
+    const [f, t, p] = await Promise.all([
       supabase.from("features").select("*").order("created_at", { ascending: false }),
       supabase.from("tickets").select("*").order("created_at", { ascending: true }),
+      loadProfiles(supabase),
     ]);
     const err = f.error ?? t.error;
     if (err) {
@@ -27,6 +29,7 @@ export default function TicketsPanel() {
     }
     setFeatures((f.data as FeatureRow[]) ?? []);
     setTickets((t.data as TicketRow[]) ?? []);
+    setProfiles(p);
     setState("ready");
   }, [supabase]);
 
@@ -34,6 +37,32 @@ export default function TicketsPanel() {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
     load();
   }, [supabase, load]);
+
+  async function takeTicket(ticket: TicketRow, featureName: string) {
+    if (!user) return;
+    const { error } = await supabase
+      .from("tickets")
+      .update({ owner_id: user.id, owner_name: displayName(user) })
+      .eq("id", ticket.id)
+      .is("owner_id", null);
+    if (!error) {
+      await recordHistory(supabase, user, "took_ticket", "ticket", ticket.title, { feature: featureName });
+      await load();
+    }
+  }
+
+  async function dropTicket(ticket: TicketRow, featureName: string) {
+    if (!user) return;
+    const { error } = await supabase
+      .from("tickets")
+      .update({ owner_id: null, owner_name: null })
+      .eq("id", ticket.id)
+      .eq("owner_id", user.id);
+    if (!error) {
+      await recordHistory(supabase, user, "dropped_ticket", "ticket", ticket.title, { feature: featureName });
+      await load();
+    }
+  }
 
   async function toggleTicket(ticket: TicketRow, featureName: string) {
     const { error } = await supabase
@@ -90,9 +119,29 @@ export default function TicketsPanel() {
                   }}>
                     {ticket.title}
                   </span>
-                  <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", flexShrink: 0 }}>
-                    {ticket.author_name} · {formatTime(ticket.created_at)}
-                  </span>
+                  {ticket.owner_id ? (
+                    <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", flexShrink: 0, whiteSpace: "nowrap" }}>
+                      👤 {nameFor(profiles, ticket.owner_id, ticket.owner_name)}
+                    </span>
+                  ) : null}
+                  {!ticket.owner_id && user && (
+                    <button
+                      className="btn-ghost"
+                      onClick={() => takeTicket(ticket, feature.name)}
+                      style={{ padding: "2px 8px", flexShrink: 0 }}
+                    >
+                      Take
+                    </button>
+                  )}
+                  {ticket.owner_id === user?.id && (
+                    <button
+                      className="btn-ghost"
+                      onClick={() => dropTicket(ticket, feature.name)}
+                      style={{ padding: "2px 8px", flexShrink: 0 }}
+                    >
+                      Drop
+                    </button>
+                  )}
                 </div>
               ))}
           </div>

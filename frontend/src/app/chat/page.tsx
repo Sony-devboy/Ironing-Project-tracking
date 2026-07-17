@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
 import { createClient } from "@/utils/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { MessageRow, displayName, isMissingTable, formatTime } from "@/utils/appData";
+import { MessageRow, ProfileMap, displayName, isMissingTable, loadProfiles, nameFor, formatTime } from "@/utils/appData";
 import { SetupNotice } from "@/components/FeaturesBoard";
 
 type PanelState = "loading" | "ready" | "no-tables" | "error";
@@ -17,6 +17,7 @@ function ChatRoom() {
   const [draft, setDraft] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [sending, setSending] = useState(false);
+  const [profiles, setProfiles] = useState<ProfileMap>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -36,6 +37,7 @@ function ChatRoom() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    loadProfiles(supabase).then(setProfiles);
     load();
     const interval = setInterval(load, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
@@ -97,7 +99,7 @@ function ChatRoom() {
             >
               {!mine && (
                 <p style={{ fontSize: "0.7rem", fontWeight: 700, marginBottom: "2px", color: "var(--text-secondary)" }}>
-                  {msg.author_name}
+                  {nameFor(profiles, msg.author_id, msg.author_name)}
                 </p>
               )}
               <p style={{ fontSize: "0.9rem", overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>{msg.content}</p>

@@ -1,5 +1,6 @@
 import React from "react";
 import GitStatusCard from "@/components/GitStatusCard";
+import MyTicketsCard from "@/components/MyTicketsCard";
 
 export default function Home() {
   return (
@@ -14,6 +15,9 @@ export default function Home() {
       </header>
 
       <div className="dashboard-grid">
+        {/* Tickets the signed-in user has taken */}
+        <MyTicketsCard />
+
         {/* Dynamic Git Status Indicator */}
         <GitStatusCard />
 

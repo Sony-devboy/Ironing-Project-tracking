@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { HistoryRow, actionLabel, formatTime, isMissingTable } from "@/utils/appData";
+import { HistoryRow, ProfileMap, actionLabel, formatTime, isMissingTable, loadProfiles, nameFor } from "@/utils/appData";
 import { SetupNotice } from "@/components/FeaturesBoard";
 
 type PanelState = "loading" | "ready" | "no-tables" | "error";
@@ -13,14 +13,16 @@ export default function OverviewPanel() {
   const [openTickets, setOpenTickets] = useState(0);
   const [doneTickets, setDoneTickets] = useState(0);
   const [recent, setRecent] = useState<HistoryRow[]>([]);
+  const [profiles, setProfiles] = useState<ProfileMap>({});
   const supabase = createClient();
 
   useEffect(() => {
     async function load() {
-      const [f, t, h] = await Promise.all([
+      const [f, t, h, p] = await Promise.all([
         supabase.from("features").select("id"),
         supabase.from("tickets").select("id, done"),
         supabase.from("history").select("*").order("created_at", { ascending: false }).limit(5),
+        loadProfiles(supabase),
       ]);
       const err = f.error ?? t.error ?? h.error;
       if (err) {
@@ -32,6 +34,7 @@ export default function OverviewPanel() {
       setOpenTickets(ticketRows.filter((row) => !row.done).length);
       setDoneTickets(ticketRows.filter((row) => row.done).length);
       setRecent((h.data as HistoryRow[]) ?? []);
+      setProfiles(p);
       setState("ready");
     }
     load();
@@ -68,7 +71,7 @@ export default function OverviewPanel() {
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           {recent.map((entry) => (
             <p key={entry.id} style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-              <strong style={{ color: "var(--text-primary)" }}>{entry.actor_name}</strong>{" "}
+              <strong style={{ color: "var(--text-primary)" }}>{nameFor(profiles, entry.actor_id, entry.actor_name)}</strong>{" "}
               {actionLabel(entry.action)}{" "}
               <strong style={{ color: "var(--text-primary)", overflowWrap: "anywhere" }}>{entry.entity_name}</strong>
               <span style={{ fontSize: "0.75rem" }}> · {formatTime(entry.created_at)}</span>

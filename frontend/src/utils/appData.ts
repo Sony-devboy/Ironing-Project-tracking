@@ -4,6 +4,7 @@ export interface FeatureRow {
   id: string;
   name: string;
   description: string;
+  created_by: string;
   author_name: string;
   created_at: string;
 }
@@ -13,18 +14,27 @@ export interface TicketRow {
   feature_id: string;
   title: string;
   done: boolean;
+  created_by: string;
   author_name: string;
+  owner_id: string | null;
+  owner_name: string | null;
   created_at: string;
 }
 
 export interface HistoryRow {
   id: string;
+  actor_id: string;
   actor_name: string;
   action: string;
   entity_type: string;
   entity_name: string;
   details: Record<string, unknown> | null;
   created_at: string;
+}
+
+export interface ProfileRow {
+  id: string;
+  display_name: string;
 }
 
 export interface MessageRow {
@@ -36,7 +46,31 @@ export interface MessageRow {
 }
 
 export function displayName(user: User | null): string {
-  return user?.user_metadata?.user_name || user?.email || "Unknown";
+  return (
+    user?.user_metadata?.display_name ||
+    user?.user_metadata?.user_name ||
+    user?.email ||
+    "Unknown"
+  );
+}
+
+// Current display names by user id. Rendering resolves names through this
+// map (falling back to the name stored on the row), so renaming yourself in
+// Settings retroactively updates chats, tickets, history — everything.
+export type ProfileMap = Record<string, string>;
+
+export async function loadProfiles(supabase: SupabaseClient): Promise<ProfileMap> {
+  const { data, error } = await supabase.from("profiles").select("id, display_name");
+  if (error) return {};
+  const map: ProfileMap = {};
+  for (const row of (data as ProfileRow[]) ?? []) {
+    map[row.id] = row.display_name;
+  }
+  return map;
+}
+
+export function nameFor(profiles: ProfileMap, userId: string | null | undefined, fallback: string | null | undefined): string {
+  return (userId && profiles[userId]) || fallback || "Unknown";
 }
 
 // True when the query failed because the tables have not been created yet
@@ -79,6 +113,9 @@ export const ACTION_LABELS: Record<string, string> = {
   deleted_ticket: "deleted ticket",
   completed_ticket: "completed ticket",
   reopened_ticket: "reopened ticket",
+  took_ticket: "took ticket",
+  dropped_ticket: "dropped ticket",
+  updated_display_name: "changed display name to",
 };
 
 export function actionLabel(action: string): string {

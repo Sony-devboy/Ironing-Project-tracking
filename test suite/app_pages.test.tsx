@@ -36,7 +36,7 @@ const mockOnAuthStateChange = jest.fn().mockReturnValue({
 // resolves to an empty successful result.
 function makeQueryBuilder() {
   const builder: Record<string, unknown> = {};
-  for (const method of ["select", "order", "limit", "eq", "insert", "update", "delete"]) {
+  for (const method of ["select", "order", "limit", "eq", "is", "insert", "update", "upsert", "delete", "single", "maybeSingle"]) {
     builder[method] = jest.fn().mockReturnValue(builder);
   }
   builder.then = (resolve: (value: { data: unknown[]; error: null }) => void) =>
@@ -51,6 +51,7 @@ jest.mock("@/utils/supabase/client", () => ({
         getSession: mockGetSession,
         getUser: mockGetUser,
         onAuthStateChange: mockOnAuthStateChange,
+        updateUser: jest.fn().mockResolvedValue({ data: {}, error: null }),
       },
       from: jest.fn(() => makeQueryBuilder()),
     };
@@ -206,6 +207,16 @@ describe("Subpages and Tab Selectors Test Suite", () => {
       expect(screen.getByText("Settings")).toBeInTheDocument();
       expect(screen.getByText(/Configure application variables/i)).toBeInTheDocument();
       expect(screen.getByText("Settings - WIP")).toBeInTheDocument();
+    });
+
+    test("shows the display-name editor for a logged-in member", async () => {
+      render(<SettingsPage />);
+
+      const input = await screen.findByTestId("profile-name-input");
+      expect(input).toBeInTheDocument();
+      // Prefilled with the user's current name (GitHub username fallback)
+      expect((input as HTMLInputElement).value).toBe("member");
+      expect(screen.getByTestId("profile-save-btn")).toBeInTheDocument();
     });
   });
 });

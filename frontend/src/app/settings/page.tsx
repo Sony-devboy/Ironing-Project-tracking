@@ -1,6 +1,7 @@
 import React from "react";
 import BackendStatusCard from "@/components/BackendStatusCard";
 import LoginStatusCard from "@/components/LoginStatusCard";
+import ProfileCard from "@/components/ProfileCard";
 
 export default function SettingsPage() {
   return (
@@ -20,6 +21,9 @@ export default function SettingsPage() {
 
         {/* GitHub OAuth Login Status Indicator */}
         <LoginStatusCard />
+
+        {/* Display name editor */}
+        <ProfileCard />
 
         {/* WIP Settings Panel */}
         <div className="card" data-testid="settings-wip-card">
