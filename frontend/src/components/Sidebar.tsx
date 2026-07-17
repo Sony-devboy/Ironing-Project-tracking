@@ -12,10 +12,10 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { label: "Home", href: "/", id: "nav-home", abbr: "H" },
-  { label: "Main App", href: "/mainapp", id: "nav-mainapp", abbr: "MA" },
-  { label: "Company Info", href: "/company", id: "nav-company", abbr: "CI" },
-  { label: "Settings", href: "/settings", id: "nav-settings", abbr: "S" },
+  { label: "Home", href: "/", id: "nav-home", abbr: "H", membersOnly: false },
+  { label: "Main App", href: "/mainapp", id: "nav-mainapp", abbr: "MA", membersOnly: true },
+  { label: "Company Info", href: "/company", id: "nav-company", abbr: "CI", membersOnly: true },
+  { label: "Settings", href: "/settings", id: "nav-settings", abbr: "S", membersOnly: false },
 ];
 
 export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
@@ -84,31 +84,28 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       </div>
 
       <nav className="sidebar-nav">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          const isProtected = item.href !== "/";
-          const showWarning = !user && isProtected;
+        {navItems
+          // Member-only sections are hidden entirely until someone signs in
+          .filter((item) => !item.membersOnly || user)
+          .map((item) => {
+            const isActive = pathname === item.href;
 
-          return (
-            <Link 
-              key={item.id}
-              href={item.href} 
-              className={`sidebar-item ${isActive ? "active" : ""}`} 
-              data-testid={item.id}
-              title={showWarning ? "Log in to load and sync data for this view" : undefined}
-              style={{
-                opacity: showWarning ? 0.7 : 1,
-              }}
-            >
-              <span className="sidebar-text-short" aria-hidden="true">
-                {item.abbr}
-              </span>
-              <span className="sidebar-text">
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                className={`sidebar-item ${isActive ? "active" : ""}`}
+                data-testid={item.id}
+              >
+                <span className="sidebar-text-short" aria-hidden="true">
+                  {item.abbr}
+                </span>
+                <span className="sidebar-text">
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
       </nav>
     </aside>
   );

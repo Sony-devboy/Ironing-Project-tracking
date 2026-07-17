@@ -168,8 +168,10 @@ describe("IRON Layout & Theme Test Suite", () => {
     expect(toggleBtn.getAttribute("aria-expanded")).toBe("false");
   });
 
-  // Test Sidebar Options list with text-only navigation and href attributes
-  test("renders correct sidebar navigation links with matching hrefs and testids", () => {
+  // Logged out: member-only sections are hidden from the sidebar entirely
+  test("renders only Home and Settings sidebar links when logged out", async () => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
+
     render(
       <Sidebar isCollapsed={false} onToggle={() => {}} />
     );
@@ -179,18 +181,41 @@ describe("IRON Layout & Theme Test Suite", () => {
     expect(homeLink).toHaveAttribute("href", "/");
     expect(homeLink).toHaveTextContent("Home");
 
-    const mainappLink = screen.getByTestId("nav-mainapp");
-    expect(mainappLink).toBeInTheDocument();
+    const settingsLink = screen.getByTestId("nav-settings");
+    expect(settingsLink).toBeInTheDocument();
+    expect(settingsLink).toHaveAttribute("href", "/settings");
+    expect(settingsLink).toHaveTextContent("Settings");
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("nav-mainapp")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("nav-company")).not.toBeInTheDocument();
+    });
+  });
+
+  // Logged in: all sidebar navigation links are available
+  test("renders all sidebar navigation links with hrefs when logged in", async () => {
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: { email: "member@iron.com" } },
+      error: null,
+    });
+
+    render(
+      <Sidebar isCollapsed={false} onToggle={() => {}} />
+    );
+
+    const mainappLink = await screen.findByTestId("nav-mainapp");
     expect(mainappLink).toHaveAttribute("href", "/mainapp");
     expect(mainappLink).toHaveTextContent("Main App");
 
     const companyLink = screen.getByTestId("nav-company");
-    expect(companyLink).toBeInTheDocument();
     expect(companyLink).toHaveAttribute("href", "/company");
     expect(companyLink).toHaveTextContent("Company Info");
 
+    const homeLink = screen.getByTestId("nav-home");
+    expect(homeLink).toHaveAttribute("href", "/");
+    expect(homeLink).toHaveTextContent("Home");
+
     const settingsLink = screen.getByTestId("nav-settings");
-    expect(settingsLink).toBeInTheDocument();
     expect(settingsLink).toHaveAttribute("href", "/settings");
     expect(settingsLink).toHaveTextContent("Settings");
   });

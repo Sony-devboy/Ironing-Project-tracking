@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import AuthGuard from "@/components/AuthGuard";
 
 type TabId = "overview" | "notes";
 
@@ -13,6 +14,7 @@ export default function CompanyInfoPage() {
   ];
 
   return (
+    <AuthGuard>
     <div style={{ animation: "fadeIn 0.5s ease-out" }}>
       <header style={{ marginBottom: "32px" }}>
         <h1 style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "8px", letterSpacing: "-0.02em" }}>
@@ -62,5 +64,6 @@ export default function CompanyInfoPage() {
         `
       }} />
     </div>
+    </AuthGuard>
   );
 }
