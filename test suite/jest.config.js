@@ -1,12 +1,15 @@
-import type { Config } from "jest";
-import nextJest from "../frontend/node_modules/next/dist/build/jest/jest.js";
+// Plain JavaScript config: a .ts config would be compiled by ts-node with
+// type checking, which fails in CI because no node_modules exists at this
+// level to resolve the "jest" types from.
+const nextJest = require("../frontend/node_modules/next/dist/build/jest/jest.js");
 
 const createJestConfig = nextJest({
   // Since tests run from the frontend folder, Next.js app root is current directory
   dir: "./",
 });
 
-const config: Config = {
+/** @type {import('jest').Config} */
+const config = {
   // Set rootDir to project root so Jest scans both frontend and test suite directories
   rootDir: "../",
   coverageProvider: "v8",
@@ -21,4 +24,4 @@ const config: Config = {
   },
 };
 
-export default createJestConfig(config);
+module.exports = createJestConfig(config);

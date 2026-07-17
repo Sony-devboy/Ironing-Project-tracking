@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start -p 10000",
     "lint": "eslint",
-    "test": "jest --config \"../test suite/jest.config.ts\"",
-    "test:watch": "jest --config \"../test suite/jest.config.ts\" --watch"
+    "test": "jest --config \"../test suite/jest.config.js\"",
+    "test:watch": "jest --config \"../test suite/jest.config.js\" --watch"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
