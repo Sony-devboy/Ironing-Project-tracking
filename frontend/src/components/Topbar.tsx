@@ -40,10 +40,13 @@ export default function Topbar() {
   const handleSignIn = async () => {
     try {
       setLoading(true);
+      // Redirect back to the page the user is currently on. The Supabase
+      // browser client detects the ?code param on return and completes the
+      // sign-in itself, so this works on static hosting (GitHub Pages) too.
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "github",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}${window.location.pathname}`,
         },
       });
       if (error) throw error;

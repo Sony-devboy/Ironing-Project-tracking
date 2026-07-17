@@ -28,7 +28,7 @@ export default function LoginStatusCard() {
         // the redirect to GitHub.
         const authorizeUrl =
           `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/authorize` +
-          `?provider=github&redirect_to=${encodeURIComponent(`${window.location.origin}/auth/callback`)}`;
+          `?provider=github&redirect_to=${encodeURIComponent(`${window.location.origin}${window.location.pathname}`)}`;
         const res = await fetch(authorizeUrl, { redirect: "manual" });
 
         if (res.type === "opaqueredirect") {

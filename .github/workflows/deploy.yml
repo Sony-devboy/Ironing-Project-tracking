@@ -1,0 +1,74 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Run tests
+        run: npm test
+        working-directory: frontend
+
+      # GitHub Pages only serves static files. These parts of the app are
+      # server-side only, so they are removed from the static build:
+      # - src/app/api        -> git-status endpoint (inspects a local machine)
+      # - src/app/auth       -> server-side OAuth callback (client handles it)
+      # - src/proxy.ts       -> session-refresh middleware (not supported in export)
+      - name: Remove server-only code for static export
+        run: |
+          rm -rf frontend/src/app/api
+          rm -rf frontend/src/app/auth
+          rm -f frontend/src/proxy.ts
+
+      - name: Build static site
+        run: npm run build
+        working-directory: frontend
+        env:
+          GITHUB_PAGES: "true"
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+          # These are public client-side values by design (the publishable
+          # key is safe to expose; data access is protected by RLS).
+          NEXT_PUBLIC_SUPABASE_URL: https://nezglifywwvevzmschgy.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_ZS_Z2y2u1L0Hk8FHDJqeWA_gl4FbJbU
+
+      - name: Disable Jekyll processing
+        run: touch frontend/out/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
