@@ -10,6 +10,7 @@ interface LayoutWrapperProps {
 
 export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -34,8 +35,20 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
 
   return (
     <div className={`app-container ${isCollapsed ? "sidebar-collapsed" : ""}`} data-testid="app-container">
-      <Topbar />
-      <Sidebar isCollapsed={isCollapsed} onToggle={handleToggle} />
+      <Topbar onMenuToggle={() => setMobileNavOpen((open) => !open)} />
+      {mobileNavOpen && (
+        <div
+          className="sidebar-backdrop"
+          data-testid="sidebar-backdrop"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+      <Sidebar
+        isCollapsed={isCollapsed}
+        onToggle={handleToggle}
+        mobileOpen={mobileNavOpen}
+        onNavigate={() => setMobileNavOpen(false)}
+      />
       <main className="main-content">
         {children}
       </main>

@@ -211,6 +211,14 @@ describe("IRON Layout & Theme Test Suite", () => {
     expect(companyLink).toHaveAttribute("href", "/company");
     expect(companyLink).toHaveTextContent("Company Info");
 
+    const historyLink = screen.getByTestId("nav-history");
+    expect(historyLink).toHaveAttribute("href", "/history");
+    expect(historyLink).toHaveTextContent("History");
+
+    const chatLink = screen.getByTestId("nav-chat");
+    expect(chatLink).toHaveAttribute("href", "/chat");
+    expect(chatLink).toHaveTextContent("Local Chat");
+
     const homeLink = screen.getByTestId("nav-home");
     expect(homeLink).toHaveAttribute("href", "/");
     expect(homeLink).toHaveTextContent("Home");

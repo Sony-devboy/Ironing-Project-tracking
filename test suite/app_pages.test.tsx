@@ -3,11 +3,14 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import MainAppPage from "@/app/mainapp/page";
 import CompanyInfoPage from "@/app/company/page";
 import SettingsPage from "@/app/settings/page";
+import HistoryPage from "@/app/history/page";
+import ChatPage from "@/app/chat/page";
 
 const loggedInSession = {
   data: {
     session: {
       user: {
+        id: "user-1",
         email: "member@iron.com",
         user_metadata: { user_name: "member" },
       },
@@ -29,6 +32,18 @@ const mockOnAuthStateChange = jest.fn().mockReturnValue({
   },
 });
 
+// Chainable, awaitable stand-in for the supabase query builder that always
+// resolves to an empty successful result.
+function makeQueryBuilder() {
+  const builder: Record<string, unknown> = {};
+  for (const method of ["select", "order", "limit", "eq", "insert", "update", "delete"]) {
+    builder[method] = jest.fn().mockReturnValue(builder);
+  }
+  builder.then = (resolve: (value: { data: unknown[]; error: null }) => void) =>
+    resolve({ data: [], error: null });
+  return builder;
+}
+
 jest.mock("@/utils/supabase/client", () => ({
   createClient() {
     return {
@@ -37,53 +52,54 @@ jest.mock("@/utils/supabase/client", () => ({
         getUser: mockGetUser,
         onAuthStateChange: mockOnAuthStateChange,
       },
-      from: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+      from: jest.fn(() => makeQueryBuilder()),
     };
   },
 }));
 
 describe("Subpages and Tab Selectors Test Suite", () => {
   describe("Main App Page", () => {
-    test("renders title, description, all tabs, and toggles content on tab click when logged in", async () => {
+    test("renders Overview as the first, default tab and toggles through all tabs when logged in", async () => {
       render(<MainAppPage />);
 
       // Content appears once the auth guard resolves the session
-      const tabFeatures = await screen.findByTestId("tab-features");
+      const tabOverview = await screen.findByTestId("tab-overview");
 
       // Title & Subtitle check
       expect(screen.getByText("Main Application")).toBeInTheDocument();
       expect(screen.getByText(/Core product functionality/i)).toBeInTheDocument();
 
-      // Tab buttons exist
+      // All four tabs exist, Overview first and active by default
+      const tabFeatures = screen.getByTestId("tab-features");
       const tabTickets = screen.getByTestId("tab-tickets");
       const tabNotes = screen.getByTestId("tab-notes");
+      expect(tabOverview).toHaveClass("active");
+      expect(screen.getByTestId("content-overview")).toBeInTheDocument();
+      expect(await screen.findByText("Recent Activity")).toBeInTheDocument();
 
-      // Initial active state: Features content should be visible
+      // Tab order: Overview must be the first button
+      const tabButtons = screen.getAllByRole("button", { name: /Overview|Features|Tickets|Notes/ });
+      expect(tabButtons[0]).toHaveTextContent("Overview");
+
+      // Click Features Tab -> add-feature form is available
+      fireEvent.click(tabFeatures);
       expect(tabFeatures).toHaveClass("active");
       expect(screen.getByTestId("content-features")).toBeInTheDocument();
-      expect(screen.getByText("Features - WIP")).toBeInTheDocument();
-
-      // Tickets/Notes content should not be in the document
-      expect(screen.queryByTestId("content-tickets")).not.toBeInTheDocument();
-      expect(screen.queryByTestId("content-notes")).not.toBeInTheDocument();
+      expect(await screen.findByTestId("feature-name-input")).toBeInTheDocument();
+      expect(screen.getByTestId("features-empty")).toBeInTheDocument();
+      expect(screen.queryByTestId("content-overview")).not.toBeInTheDocument();
 
       // Click Tickets Tab
       fireEvent.click(tabTickets);
       expect(tabTickets).toHaveClass("active");
-      expect(tabFeatures).not.toHaveClass("active");
       expect(screen.getByTestId("content-tickets")).toBeInTheDocument();
-      expect(screen.getByText("Tickets - WIP")).toBeInTheDocument();
-      expect(screen.queryByTestId("content-features")).not.toBeInTheDocument();
+      expect(await screen.findByTestId("tickets-empty")).toBeInTheDocument();
 
       // Click Notes Tab
       fireEvent.click(tabNotes);
       expect(tabNotes).toHaveClass("active");
-      expect(tabTickets).not.toHaveClass("active");
       expect(screen.getByTestId("content-notes")).toBeInTheDocument();
       expect(screen.getByText("Notes - WIP")).toBeInTheDocument();
-      expect(screen.queryByTestId("content-tickets")).not.toBeInTheDocument();
     });
 
     test("shows sign-in required lock instead of content when logged out", async () => {
@@ -95,7 +111,7 @@ describe("Subpages and Tab Selectors Test Suite", () => {
       expect(screen.getByText("Sign in required")).toBeInTheDocument();
 
       // None of the member content is rendered
-      expect(screen.queryByTestId("tab-features")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("tab-overview")).not.toBeInTheDocument();
       expect(screen.queryByTestId("tab-content-panel")).not.toBeInTheDocument();
     });
   });
@@ -139,6 +155,45 @@ describe("Subpages and Tab Selectors Test Suite", () => {
       // None of the member content is rendered
       expect(screen.queryByTestId("tab-overview")).not.toBeInTheDocument();
       expect(screen.queryByTestId("tab-content-panel")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("History Page", () => {
+    test("renders empty history for a logged-in member", async () => {
+      render(<HistoryPage />);
+
+      expect(await screen.findByText("History")).toBeInTheDocument();
+      expect(await screen.findByTestId("history-empty")).toBeInTheDocument();
+    });
+
+    test("shows sign-in required lock when logged out", async () => {
+      mockGetSession.mockResolvedValueOnce(loggedOutSession);
+
+      render(<HistoryPage />);
+
+      expect(await screen.findByTestId("auth-guard-locked")).toBeInTheDocument();
+      expect(screen.queryByTestId("history-empty")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Local Chat Page", () => {
+    test("renders the chat room with input for a logged-in member", async () => {
+      render(<ChatPage />);
+
+      expect(await screen.findByText("Local Chat")).toBeInTheDocument();
+      expect(await screen.findByTestId("chat-room")).toBeInTheDocument();
+      expect(screen.getByTestId("chat-empty")).toBeInTheDocument();
+      expect(screen.getByTestId("chat-input")).toBeInTheDocument();
+      expect(screen.getByTestId("chat-send-btn")).toBeDisabled();
+    });
+
+    test("shows sign-in required lock when logged out", async () => {
+      mockGetSession.mockResolvedValueOnce(loggedOutSession);
+
+      render(<ChatPage />);
+
+      expect(await screen.findByTestId("auth-guard-locked")).toBeInTheDocument();
+      expect(screen.queryByTestId("chat-room")).not.toBeInTheDocument();
     });
   });
 

@@ -2,13 +2,17 @@
 
 import React, { useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
+import OverviewPanel from "@/components/OverviewPanel";
+import FeaturesBoard from "@/components/FeaturesBoard";
+import TicketsPanel from "@/components/TicketsPanel";
 
-type TabId = "features" | "tickets" | "notes";
+type TabId = "overview" | "features" | "tickets" | "notes";
 
 export default function MainAppPage() {
-  const [activeTab, setActiveTab] = useState<TabId>("features");
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
 
   const tabs = [
+    { id: "overview" as TabId, label: "Overview", testId: "tab-overview" },
     { id: "features" as TabId, label: "Features", testId: "tab-features" },
     { id: "tickets" as TabId, label: "Tickets", testId: "tab-tickets" },
     { id: "notes" as TabId, label: "Notes", testId: "tab-notes" },
@@ -42,16 +46,22 @@ export default function MainAppPage() {
 
       {/* Tabs Content Area */}
       <div className="tab-content" data-testid="tab-content-panel">
+        {activeTab === "overview" && (
+          <div data-testid="content-overview">
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "16px" }}>Project Overview</h2>
+            <OverviewPanel />
+          </div>
+        )}
         {activeTab === "features" && (
           <div data-testid="content-features">
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "8px" }}>Features Tracking</h2>
-            <p style={{ color: "var(--text-secondary)" }}>Features - WIP</p>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "16px" }}>Features Tracking</h2>
+            <FeaturesBoard />
           </div>
         )}
         {activeTab === "tickets" && (
           <div data-testid="content-tickets">
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "8px" }}>Ticket Dashboard</h2>
-            <p style={{ color: "var(--text-secondary)" }}>Tickets - WIP</p>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "16px" }}>Ticket Dashboard</h2>
+            <TicketsPanel />
           </div>
         )}
         {activeTab === "notes" && (

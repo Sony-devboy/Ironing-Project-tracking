@@ -5,7 +5,11 @@ import { useTheme } from "./ThemeProvider";
 import { createClient } from "@/utils/supabase/client";
 import { User } from "@supabase/supabase-js";
 
-export default function Topbar() {
+interface TopbarProps {
+  onMenuToggle?: () => void;
+}
+
+export default function Topbar({ onMenuToggle }: TopbarProps) {
   const { theme, toggleTheme } = useTheme();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,16 +75,26 @@ export default function Topbar() {
   return (
     <header className="topbar">
       <div className="topbar-logo" data-testid="topbar-logo">
-        <span style={{ 
-          background: "var(--text-primary)", 
-          color: "var(--bg-secondary)", 
-          padding: "2px 8px", 
+        {onMenuToggle && (
+          <button
+            className="mobile-menu-btn"
+            onClick={onMenuToggle}
+            aria-label="Toggle navigation menu"
+            data-testid="mobile-menu-btn"
+          >
+            ☰
+          </button>
+        )}
+        <span style={{
+          background: "var(--text-primary)",
+          color: "var(--bg-secondary)",
+          padding: "2px 8px",
           borderRadius: "4px",
           fontWeight: 900
         }}>
           IRON
         </span>
-        <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>
+        <span className="logo-subtitle" style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>
           Project Tracking
         </span>
       </div>

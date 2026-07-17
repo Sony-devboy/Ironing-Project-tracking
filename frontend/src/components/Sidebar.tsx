@@ -9,16 +9,20 @@ import { User } from "@supabase/supabase-js";
 interface SidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
+  mobileOpen?: boolean;
+  onNavigate?: () => void;
 }
 
 const navItems = [
   { label: "Home", href: "/", id: "nav-home", abbr: "H", membersOnly: false },
   { label: "Main App", href: "/mainapp", id: "nav-mainapp", abbr: "MA", membersOnly: true },
   { label: "Company Info", href: "/company", id: "nav-company", abbr: "CI", membersOnly: true },
+  { label: "History", href: "/history", id: "nav-history", abbr: "HX", membersOnly: true },
+  { label: "Local Chat", href: "/chat", id: "nav-chat", abbr: "LC", membersOnly: true },
   { label: "Settings", href: "/settings", id: "nav-settings", abbr: "S", membersOnly: false },
 ];
 
-export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
+export default function Sidebar({ isCollapsed, onToggle, mobileOpen, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const supabase = createClient();
@@ -42,8 +46,8 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   }, [supabase]);
 
   return (
-    <aside 
-      className={`sidebar ${isCollapsed ? "sidebar-collapsed" : ""}`}
+    <aside
+      className={`sidebar ${isCollapsed ? "sidebar-collapsed" : ""} ${mobileOpen ? "mobile-open" : ""}`}
       data-testid="sidebar-aside"
     >
       <div 
@@ -96,6 +100,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 href={item.href}
                 className={`sidebar-item ${isActive ? "active" : ""}`}
                 data-testid={item.id}
+                onClick={onNavigate}
               >
                 <span className="sidebar-text-short" aria-hidden="true">
                   {item.abbr}
