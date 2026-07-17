@@ -1,0 +1,332 @@
+/* CSS Variable & Theme Tokens */
+:root {
+  /* Default: Light Theme (White, Beige, Silver-beige) */
+  --bg-primary: #faf0e6;      /* Linen / warm beige */
+  --bg-secondary: #ffffff;    /* Pure white for panels */
+  --text-primary: #1a1a1f;    /* Charcoal */
+  --text-secondary: #6e6e76;  /* Soft gray for secondary text */
+  --border-color: #ebdcd0;    /* Warm beige/silver border */
+  --accent-color: #1a1a1f;    /* Black accents */
+  --accent-hover: #4a4a50;
+  --sidebar-width: 240px;
+  --topbar-height: 64px;
+  --transition-speed: 0.3s;
+  --transition-bezier: cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow: 0 4px 20px rgba(142, 126, 107, 0.15);
+}
+
+[data-theme='dark'] {
+  /* Dark Theme (Gray, Black, Silver) */
+  --bg-primary: #0a0a0c;      /* Deep black */
+  --bg-secondary: #16161a;    /* Sleek charcoal gray */
+  --text-primary: #e4e4eb;    /* Silver/light gray text */
+  --text-secondary: #9090a0;  /* Muted silver */
+  --border-color: #2c2c35;    /* Dark gray border */
+  --accent-color: #c0c0c0;    /* Silver accents */
+  --accent-hover: #ffffff;
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Base Styles & Resets */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  overflow-x: hidden;
+  transition: background-color var(--transition-speed) var(--transition-bezier),
+              color var(--transition-speed) var(--transition-bezier);
+}
+
+/* Main Layout Grid */
+.app-container {
+  display: grid;
+  grid-template-rows: var(--topbar-height) 1fr;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "topbar topbar"
+    "sidebar main";
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Sidebar Width Modifications */
+.app-container.sidebar-collapsed {
+  --sidebar-width: 72px;
+}
+
+/* Topbar Styles */
+.topbar {
+  grid-area: topbar;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow);
+  transition: background-color var(--transition-speed) var(--transition-bezier),
+              border-color var(--transition-speed) var(--transition-bezier),
+              box-shadow var(--transition-speed) var(--transition-bezier);
+}
+
+.topbar-logo {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-primary);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Theme Toggle Button Styles */
+.theme-toggle-container {
+  display: flex;
+  align-items: center;
+}
+
+.theme-toggle-btn {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--shadow);
+  transition: all var(--transition-speed) var(--transition-bezier);
+}
+
+.theme-toggle-btn:hover {
+  background-color: var(--border-color);
+  transform: translateY(-1px);
+}
+
+.theme-toggle-btn:active {
+  transform: translateY(0);
+}
+
+/* Sidebar Styles */
+.sidebar {
+  grid-area: sidebar;
+  width: var(--sidebar-width);
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 8px;
+  overflow: hidden;
+  position: relative;
+  z-index: 90;
+  transition: width var(--transition-speed) var(--transition-bezier),
+              background-color var(--transition-speed) var(--transition-bezier),
+              border-color var(--transition-speed) var(--transition-bezier);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+  gap: 8px;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all var(--transition-speed) var(--transition-bezier);
+}
+
+.sidebar-item:hover, .sidebar-item.active {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.sidebar-icon {
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+}
+
+.sidebar-text {
+  opacity: 1;
+  transition: opacity var(--transition-speed) var(--transition-bezier);
+}
+
+/* Visually hide full text when collapsed but keep accessible to DOM queries and screen readers */
+.sidebar-collapsed .sidebar-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.sidebar-text-short {
+  display: none;
+}
+
+.sidebar-collapsed .sidebar-text-short {
+  display: inline-block;
+  font-weight: 700;
+  width: 24px;
+  text-align: center;
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.sidebar-collapsed .sidebar-item.active .sidebar-text-short {
+  color: var(--text-primary);
+}
+
+/* Tabs Navigation styling */
+.tabs-nav {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 24px;
+  gap: 8px;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: all var(--transition-speed) var(--transition-bezier);
+}
+
+.tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-color);
+}
+
+.tab-content {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: var(--shadow);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.sidebar-footer {
+  padding: 16px 12px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: center;
+}
+
+.collapse-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  cursor: pointer;
+  width: 100%;
+  padding: 10px 0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600;
+  transition: all var(--transition-speed) var(--transition-bezier);
+}
+
+.collapse-btn:hover {
+  background-color: var(--bg-primary);
+}
+
+.sidebar-collapsed .collapse-btn {
+  padding: 10px;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+}
+
+/* Main Area Styles */
+.main-content {
+  grid-area: main;
+  padding: 40px;
+  overflow-y: auto;
+  transition: background-color var(--transition-speed) var(--transition-bezier);
+}
+
+/* Blank Page Dashboard Card Mockups for Visual Appeal */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  margin-top: 32px;
+}
+
+.card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+  transition: all var(--transition-speed) var(--transition-bezier);
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+}
+
+.card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.card-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Enforcing desktop minimum-width scaling */
+@media (max-width: 1023px) {
+  .app-container {
+    min-width: 1024px;
+  }
+}
