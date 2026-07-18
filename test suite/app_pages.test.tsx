@@ -136,7 +136,15 @@ describe("Subpages and Tab Selectors Test Suite", () => {
       // Initial active state: Overview content should be visible
       expect(tabOverview).toHaveClass("active");
       expect(screen.getByTestId("content-overview")).toBeInTheDocument();
-      expect(screen.getByText("Overview - WIP")).toBeInTheDocument();
+      // Static ownership structure: all four stakeholders and their fixed percentages
+      expect(screen.getByTestId("ownership-structure")).toBeInTheDocument();
+      expect(screen.getByText("Adithya")).toBeInTheDocument();
+      expect(screen.getByText("Jai")).toBeInTheDocument();
+      expect(screen.getByText("Harshit")).toBeInTheDocument();
+      expect(screen.getByText("Company Bonus")).toBeInTheDocument();
+      expect(screen.getAllByText("43%")).toHaveLength(2);
+      expect(screen.getByText("10%")).toBeInTheDocument();
+      expect(screen.getByText("4%")).toBeInTheDocument();
       expect(screen.queryByTestId("content-notes")).not.toBeInTheDocument();
 
       // Click Notes Tab
