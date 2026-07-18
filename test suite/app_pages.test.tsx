@@ -142,10 +142,30 @@ describe("Subpages and Tab Selectors Test Suite", () => {
       expect(screen.getByText("Jai")).toBeInTheDocument();
       expect(screen.getByText("Harshit")).toBeInTheDocument();
       expect(screen.getByText("Company Bonus")).toBeInTheDocument();
-      expect(screen.getAllByText("43%")).toHaveLength(2);
+      expect(screen.getAllByText("30%")).toHaveLength(3);
       expect(screen.getByText("10%")).toBeInTheDocument();
-      expect(screen.getByText("4%")).toBeInTheDocument();
       expect(screen.queryByTestId("content-notes")).not.toBeInTheDocument();
+
+      // Click Company Rules Tab -> static rules list
+      const tabRules = screen.getByTestId("tab-rules");
+      fireEvent.click(tabRules);
+      expect(tabRules).toHaveClass("active");
+      expect(screen.getByTestId("content-rules")).toBeInTheDocument();
+      expect(
+        screen.getByText(/Company equity can only be changed when all shareholders are present/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Company rules can only be changed when all shareholders are present/i)
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId("content-overview")).not.toBeInTheDocument();
+
+      // Click Meeting Records Tab -> WIP placeholder
+      const tabMeetings = screen.getByTestId("tab-meetings");
+      fireEvent.click(tabMeetings);
+      expect(tabMeetings).toHaveClass("active");
+      expect(screen.getByTestId("content-meetings")).toBeInTheDocument();
+      expect(screen.getByText("Meeting Records - WIP")).toBeInTheDocument();
+      expect(screen.queryByTestId("content-rules")).not.toBeInTheDocument();
 
       // Click Notes Tab
       fireEvent.click(tabNotes);

@@ -3,14 +3,20 @@
 import React, { useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
 
-type TabId = "overview" | "notes";
+type TabId = "overview" | "rules" | "meetings" | "notes";
 
 // Fixed ownership structure — static, not editable from the UI.
 const OWNERSHIP_STRUCTURE = [
-  { name: "Adithya", role: "Founder", percent: 43 },
-  { name: "Jai", role: "Founding Partner", percent: 43 },
+  { name: "Adithya", role: "Founder", percent: 30 },
+  { name: "Jai", role: "Founding Partner", percent: 30 },
   { name: "Harshit", role: "Collaborator — Marketing", percent: 10 },
-  { name: "Company Bonus", role: "Reserved Pool", percent: 4 },
+  { name: "Company Bonus", role: "Reserved Pool", percent: 30 },
+] as const;
+
+// Fixed company rules — static, not editable from the UI.
+const COMPANY_RULES = [
+  "Company equity can only be changed when all shareholders are present.",
+  "Company rules can only be changed when all shareholders are present.",
 ] as const;
 
 export default function CompanyInfoPage() {
@@ -18,6 +24,8 @@ export default function CompanyInfoPage() {
 
   const tabs = [
     { id: "overview" as TabId, label: "Overview", testId: "tab-overview" },
+    { id: "rules" as TabId, label: "Company Rules", testId: "tab-rules" },
+    { id: "meetings" as TabId, label: "Meeting Records", testId: "tab-meetings" },
     { id: "notes" as TabId, label: "Notes", testId: "tab-notes" },
   ];
 
@@ -112,6 +120,27 @@ export default function CompanyInfoPage() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        {activeTab === "rules" && (
+          <div data-testid="content-rules">
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "8px" }}>Company Rules</h2>
+            <p style={{ color: "var(--text-secondary)", marginBottom: "24px" }}>
+              Governing rules of the company. These rules are fixed.
+            </p>
+            <ol style={{ paddingLeft: "20px", display: "grid", gap: "12px" }}>
+              {COMPANY_RULES.map((rule) => (
+                <li key={rule} style={{ lineHeight: 1.6 }}>
+                  {rule}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+        {activeTab === "meetings" && (
+          <div data-testid="content-meetings">
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "8px" }}>Meeting Records</h2>
+            <p style={{ color: "var(--text-secondary)" }}>Meeting Records - WIP</p>
           </div>
         )}
         {activeTab === "notes" && (
