@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
+import MeetingRecords from "@/components/MeetingRecords";
 
 type TabId = "overview" | "rules" | "meetings" | "notes";
 
@@ -140,7 +141,10 @@ export default function CompanyInfoPage() {
         {activeTab === "meetings" && (
           <div data-testid="content-meetings">
             <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "8px" }}>Meeting Records</h2>
-            <p style={{ color: "var(--text-secondary)" }}>Meeting Records - WIP</p>
+            <p style={{ color: "var(--text-secondary)", marginBottom: "24px" }}>
+              Minutes-of-meeting PDFs. Upload a file and anyone signed in can view it.
+            </p>
+            <MeetingRecords />
           </div>
         )}
         {activeTab === "notes" && (

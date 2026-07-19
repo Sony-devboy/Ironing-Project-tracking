@@ -50,6 +50,18 @@ function ChatRoom() {
     }
   }, [messages]);
 
+  // While viewing the chat, mark everything as read so the sidebar unread
+  // badge clears. Runs on load and on every poll/new message. Silently
+  // ignores errors (e.g. message_reads table not set up yet).
+  useEffect(() => {
+    if (!user) return;
+    const now = new Date().toISOString();
+    supabase
+      .from("message_reads")
+      .upsert({ user_id: user.id, last_seen_at: now, updated_at: now })
+      .then(() => {});
+  }, [user, messages, supabase]);
+
   async function send(e: React.FormEvent) {
     e.preventDefault();
     const content = draft.trim();

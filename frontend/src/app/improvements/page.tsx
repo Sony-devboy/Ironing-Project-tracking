@@ -70,6 +70,30 @@ function ImprovementsBoard() {
     }
   }
 
+  async function markDone(item: ImprovementRow) {
+    const { error } = await supabase
+      .from("improvements")
+      .update({
+        done: true,
+        completed_by: user?.id ?? null,
+        completed_name: displayName(user),
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", item.id);
+    if (!error) {
+      await recordHistory(supabase, user, "completed_improvement", "improvement", item.heading);
+      await load();
+    }
+  }
+
+  async function reopen(item: ImprovementRow) {
+    const { error } = await supabase
+      .from("improvements")
+      .update({ done: false, completed_by: null, completed_name: null, completed_at: null })
+      .eq("id", item.id);
+    if (!error) await load();
+  }
+
   if (state === "loading") return <p className="card-desc">Loading improvements...</p>;
   if (state === "no-tables") return <SetupNotice />;
   if (state === "error") {
@@ -121,13 +145,34 @@ function ImprovementsBoard() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
         {improvements.map((item) => (
-          <div className="card" key={item.id} style={{ padding: "16px 20px" }}>
-            <h3 className="card-title" style={{ overflowWrap: "anywhere" }}>💡 {item.heading}</h3>
+          <div
+            className="card"
+            key={item.id}
+            data-testid={`improvement-${item.id}`}
+            style={{ padding: "16px 20px", opacity: item.done ? 0.55 : 1 }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap" }}>
+              <h3 className="card-title" style={{ overflowWrap: "anywhere", marginBottom: 0, textDecoration: item.done ? "line-through" : "none" }}>
+                {item.done ? "✅" : "💡"} {item.heading}
+              </h3>
+              {item.done ? (
+                <button className="btn-ghost" onClick={() => reopen(item)} data-testid={`reopen-improvement-${item.id}`} style={{ flexShrink: 0 }}>
+                  ↺ Reopen
+                </button>
+              ) : (
+                <button className="btn-ghost" onClick={() => markDone(item)} data-testid={`done-improvement-${item.id}`} style={{ flexShrink: 0 }}>
+                  ✓ Done
+                </button>
+              )}
+            </div>
             {item.body && (
-              <p className="card-desc" style={{ overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>{item.body}</p>
+              <p className="card-desc" style={{ overflowWrap: "anywhere", whiteSpace: "pre-wrap", marginTop: "6px" }}>{item.body}</p>
             )}
             <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "8px" }}>
               by <strong>{nameFor(profiles, item.created_by, item.author_name)}</strong> · {formatTime(item.created_at)}
+              {item.done && item.completed_at && (
+                <> · done by <strong>{nameFor(profiles, item.completed_by, item.completed_name)}</strong></>
+              )}
             </p>
           </div>
         ))}

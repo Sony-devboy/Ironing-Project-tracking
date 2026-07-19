@@ -83,12 +83,15 @@ describe("Subpages and Tab Selectors Test Suite", () => {
       const tabButtons = screen.getAllByRole("button", { name: /Overview|Features|Tickets|Notes/ });
       expect(tabButtons[0]).toHaveTextContent("Overview");
 
-      // Click Features Tab -> add-feature form is available
+      // Click Features Tab -> collapsible add-feature box + empty state
       fireEvent.click(tabFeatures);
       expect(tabFeatures).toHaveClass("active");
       expect(screen.getByTestId("content-features")).toBeInTheDocument();
-      expect(await screen.findByTestId("feature-name-input")).toBeInTheDocument();
+      expect(await screen.findByTestId("show-feature-form-btn")).toBeInTheDocument();
       expect(screen.getByTestId("features-empty")).toBeInTheDocument();
+      // Expanding the box reveals the feature name input
+      fireEvent.click(screen.getByTestId("show-feature-form-btn"));
+      expect(screen.getByTestId("feature-name-input")).toBeInTheDocument();
       expect(screen.queryByTestId("content-overview")).not.toBeInTheDocument();
 
       // Click Tickets Tab
@@ -159,12 +162,12 @@ describe("Subpages and Tab Selectors Test Suite", () => {
       ).toBeInTheDocument();
       expect(screen.queryByTestId("content-overview")).not.toBeInTheDocument();
 
-      // Click Meeting Records Tab -> WIP placeholder
+      // Click Meeting Records Tab -> PDF upload UI
       const tabMeetings = screen.getByTestId("tab-meetings");
       fireEvent.click(tabMeetings);
       expect(tabMeetings).toHaveClass("active");
       expect(screen.getByTestId("content-meetings")).toBeInTheDocument();
-      expect(screen.getByText("Meeting Records - WIP")).toBeInTheDocument();
+      expect(await screen.findByTestId("show-meeting-form-btn")).toBeInTheDocument();
       expect(screen.queryByTestId("content-rules")).not.toBeInTheDocument();
 
       // Click Notes Tab

@@ -18,6 +18,8 @@ function HistoryList() {
   const [state, setState] = useState<PanelState>("loading");
   const [entries, setEntries] = useState<HistoryRow[]>([]);
   const [profiles, setProfiles] = useState<ProfileMap>({});
+  const [view, setView] = useState<"feed" | "table">("feed");
+  const [memberFilter, setMemberFilter] = useState<string>("all"); // actor_id or "all"
   const supabase = createClient();
 
   useEffect(() => {
@@ -51,9 +53,84 @@ function HistoryList() {
     return <p className="card-desc" data-testid="history-empty">No activity recorded yet. Everything members add, complete, delete, or archive will show up here.</p>;
   }
 
+  // Distinct members who appear in the log, for the per-user filter.
+  const members = Array.from(
+    new Map(entries.map((e) => [e.actor_id, nameFor(profiles, e.actor_id, e.actor_name)])).entries()
+  ).map(([id, label]) => ({ id, label }));
+
+  const filtered = memberFilter === "all" ? entries : entries.filter((e) => e.actor_id === memberFilter);
+
+  const controls = (
+    <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "center", marginBottom: "20px" }}>
+      <div className="subtabs-nav" role="tablist" aria-label="History view" style={{ marginBottom: 0 }}>
+        <button className={`subtab-btn ${view === "feed" ? "active" : ""}`} onClick={() => setView("feed")} data-testid="history-view-feed">
+          Feed
+        </button>
+        <button className={`subtab-btn ${view === "table" ? "active" : ""}`} onClick={() => setView("table")} data-testid="history-view-table">
+          Table
+        </button>
+      </div>
+      <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "8px" }}>
+        Member
+        <select
+          className="input-field"
+          value={memberFilter}
+          onChange={(e) => setMemberFilter(e.target.value)}
+          style={{ width: "auto" }}
+          data-testid="history-member-filter"
+        >
+          <option value="all">Everyone</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>{m.label}</option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+
+  if (view === "table") {
+    return (
+      <div data-testid="history-list">
+        {controls}
+        <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }} data-testid="history-table">
+            <thead>
+              <tr style={{ textAlign: "left", color: "var(--text-secondary)" }}>
+                <th style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-color)", whiteSpace: "nowrap" }}>Time</th>
+                <th style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-color)", whiteSpace: "nowrap" }}>Member</th>
+                <th style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-color)" }}>Action</th>
+                <th style={{ padding: "10px 16px", borderBottom: "1px solid var(--border-color)" }}>Item</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((entry) => (
+                <tr key={entry.id}>
+                  <td style={{ padding: "8px 16px", borderBottom: "1px solid var(--border-color)", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                    {formatTime(entry.created_at)}
+                  </td>
+                  <td style={{ padding: "8px 16px", borderBottom: "1px solid var(--border-color)", fontWeight: 600, whiteSpace: "nowrap" }}>
+                    {nameFor(profiles, entry.actor_id, entry.actor_name)}
+                  </td>
+                  <td style={{ padding: "8px 16px", borderBottom: "1px solid var(--border-color)", color: "var(--text-secondary)" }}>
+                    {actionLabel(entry.action)}
+                  </td>
+                  <td style={{ padding: "8px 16px", borderBottom: "1px solid var(--border-color)", overflowWrap: "anywhere" }}>
+                    {entry.entity_name}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }} data-testid="history-list">
-      {entries.map((entry) => {
+    <div data-testid="history-list">
+      {controls}
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      {filtered.map((entry) => {
         const archivedTickets = (entry.details?.tickets as ArchivedTicket[] | undefined) ?? [];
         const archivedDescription = entry.details?.description as string | undefined;
 
@@ -89,6 +166,7 @@ function HistoryList() {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

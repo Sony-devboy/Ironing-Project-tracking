@@ -35,6 +35,13 @@ create table if not exists public.features (
   created_at timestamptz not null default now()
 );
 
+-- Feature deadlines + completion (added after initial release; safe on fresh installs)
+alter table public.features add column if not exists deadline date;
+alter table public.features add column if not exists done boolean not null default false;
+alter table public.features add column if not exists completed_by uuid references auth.users (id) on delete set null;
+alter table public.features add column if not exists completed_name text;
+alter table public.features add column if not exists completed_at timestamptz;
+
 alter table public.features enable row level security;
 
 drop policy if exists "members can read features" on public.features;
@@ -64,6 +71,8 @@ create table if not exists public.tickets (
 -- Ticket ownership (added after initial release; safe on fresh installs too)
 alter table public.tickets add column if not exists owner_id uuid references auth.users (id) on delete set null;
 alter table public.tickets add column if not exists owner_name text;
+-- Ticket description (added after initial release; safe on fresh installs too)
+alter table public.tickets add column if not exists description text not null default '';
 
 alter table public.tickets enable row level security;
 
@@ -150,6 +159,12 @@ create table if not exists public.improvements (
   created_at timestamptz not null default now()
 );
 
+-- Improvement completion (added after initial release; safe on fresh installs)
+alter table public.improvements add column if not exists done boolean not null default false;
+alter table public.improvements add column if not exists completed_by uuid references auth.users (id) on delete set null;
+alter table public.improvements add column if not exists completed_name text;
+alter table public.improvements add column if not exists completed_at timestamptz;
+
 alter table public.improvements enable row level security;
 
 drop policy if exists "members can read improvements" on public.improvements;
@@ -158,9 +173,75 @@ create policy "members can read improvements"
 drop policy if exists "members can add improvements" on public.improvements;
 create policy "members can add improvements"
   on public.improvements for insert to authenticated with check (true);
+drop policy if exists "members can update improvements" on public.improvements;
+create policy "members can update improvements"
+  on public.improvements for update to authenticated using (true) with check (true);
+
+-- ============ Message read receipts (per-user chat unread tracking) ============
+-- One row per user holding the timestamp of the last chat message they have seen.
+-- The sidebar badges any newer messages (from other people) as unread.
+create table if not exists public.message_reads (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  last_seen_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.message_reads enable row level security;
+
+drop policy if exists "users can read own read receipt" on public.message_reads;
+create policy "users can read own read receipt"
+  on public.message_reads for select to authenticated using (auth.uid() = user_id);
+drop policy if exists "users can insert own read receipt" on public.message_reads;
+create policy "users can insert own read receipt"
+  on public.message_reads for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "users can update own read receipt" on public.message_reads;
+create policy "users can update own read receipt"
+  on public.message_reads for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ============ Meeting Records (minutes-of-meeting PDFs) ============
+-- Metadata rows; the PDF itself lives in the 'meeting-records' storage bucket
+-- and is referenced by file_path.
+create table if not exists public.meeting_records (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  meeting_date date,
+  file_path text not null,
+  file_name text not null default '',
+  uploaded_by uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  uploader_name text not null default '',
+  created_at timestamptz not null default now()
+);
+
+alter table public.meeting_records enable row level security;
+
+drop policy if exists "members can read meeting records" on public.meeting_records;
+create policy "members can read meeting records"
+  on public.meeting_records for select to authenticated using (true);
+drop policy if exists "members can add meeting records" on public.meeting_records;
+create policy "members can add meeting records"
+  on public.meeting_records for insert to authenticated with check (true);
+drop policy if exists "members can delete meeting records" on public.meeting_records;
+create policy "members can delete meeting records"
+  on public.meeting_records for delete to authenticated using (true);
+
+-- Storage bucket for the PDF files (private — access is via short-lived signed URLs).
+insert into storage.buckets (id, name, public)
+  values ('meeting-records', 'meeting-records', false)
+  on conflict (id) do nothing;
+
+drop policy if exists "members can read meeting files" on storage.objects;
+create policy "members can read meeting files"
+  on storage.objects for select to authenticated using (bucket_id = 'meeting-records');
+drop policy if exists "members can upload meeting files" on storage.objects;
+create policy "members can upload meeting files"
+  on storage.objects for insert to authenticated with check (bucket_id = 'meeting-records');
+drop policy if exists "members can delete meeting files" on storage.objects;
+create policy "members can delete meeting files"
+  on storage.objects for delete to authenticated using (bucket_id = 'meeting-records');
 
 -- Helpful indexes
 create index if not exists tickets_feature_id_idx on public.tickets (feature_id);
 create index if not exists tickets_owner_id_idx on public.tickets (owner_id);
 create index if not exists history_created_at_idx on public.history (created_at desc);
 create index if not exists messages_created_at_idx on public.messages (created_at desc);
+create index if not exists meeting_records_created_at_idx on public.meeting_records (created_at desc);

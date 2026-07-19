@@ -4,6 +4,11 @@ export interface FeatureRow {
   id: string;
   name: string;
   description: string;
+  deadline: string | null;
+  done: boolean;
+  completed_by: string | null;
+  completed_name: string | null;
+  completed_at: string | null;
   created_by: string;
   author_name: string;
   created_at: string;
@@ -13,6 +18,7 @@ export interface TicketRow {
   id: string;
   feature_id: string;
   title: string;
+  description: string;
   done: boolean;
   created_by: string;
   author_name: string;
@@ -51,8 +57,23 @@ export interface ImprovementRow {
   id: string;
   heading: string;
   body: string;
+  done: boolean;
+  completed_by: string | null;
+  completed_name: string | null;
+  completed_at: string | null;
   created_by: string;
   author_name: string;
+  created_at: string;
+}
+
+export interface MeetingRecordRow {
+  id: string;
+  title: string;
+  meeting_date: string | null;
+  file_path: string;
+  file_name: string;
+  uploaded_by: string;
+  uploader_name: string;
   created_at: string;
 }
 
@@ -128,6 +149,8 @@ export async function recordHistory(
 export const ACTION_LABELS: Record<string, string> = {
   added_feature: "added feature",
   archived_feature: "archived feature",
+  updated_feature: "updated feature",
+  completed_feature: "completed feature",
   added_ticket: "added ticket",
   deleted_ticket: "deleted ticket",
   completed_ticket: "completed ticket",
@@ -137,6 +160,9 @@ export const ACTION_LABELS: Record<string, string> = {
   updated_display_name: "changed display name to",
   added_note: "added note",
   added_improvement: "suggested improvement",
+  completed_improvement: "marked improvement done",
+  added_meeting_record: "added meeting record",
+  deleted_meeting_record: "deleted meeting record",
 };
 
 // Insert a note and log it. Used by the Notes tab (manual) and by the

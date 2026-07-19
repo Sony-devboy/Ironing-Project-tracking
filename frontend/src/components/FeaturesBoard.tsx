@@ -7,7 +7,6 @@ import {
   FeatureRow,
   TicketRow,
   ProfileMap,
-  addNote,
   displayName,
   isMissingTable,
   loadProfiles,
@@ -15,9 +14,10 @@ import {
   recordHistory,
   formatTime,
 } from "@/utils/appData";
-import TicketNoteModal from "@/components/TicketNoteModal";
+import TicketItem from "@/components/TicketItem";
 
 type BoardState = "loading" | "ready" | "no-tables" | "error";
+type SubTab = "active" | "completed";
 
 export function SetupNotice() {
   return (
@@ -31,17 +31,49 @@ export function SetupNotice() {
   );
 }
 
+// Format an ISO date (yyyy-mm-dd) for display.
+function formatDate(d: string): string {
+  try {
+    return new Date(d + "T00:00:00").toLocaleDateString(undefined, { dateStyle: "medium" });
+  } catch {
+    return d;
+  }
+}
+
+function isOverdue(deadline: string | null, done: boolean): boolean {
+  if (!deadline || done) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return new Date(deadline + "T00:00:00") < today;
+}
+
+interface TicketDraft {
+  title: string;
+  description: string;
+}
+
 export default function FeaturesBoard() {
   const [state, setState] = useState<BoardState>("loading");
   const [features, setFeatures] = useState<FeatureRow[]>([]);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [user, setUser] = useState<User | null>(null);
+  const [profiles, setProfiles] = useState<ProfileMap>({});
+  const [subTab, setSubTab] = useState<SubTab>("active");
+
+  // Add-feature collapsible form
+  const [showAddForm, setShowAddForm] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [ticketDrafts, setTicketDrafts] = useState<Record<string, string>>({});
+  const [deadline, setDeadline] = useState("");
   const [busy, setBusy] = useState(false);
-  const [profiles, setProfiles] = useState<ProfileMap>({});
-  const [completing, setCompleting] = useState<{ ticket: TicketRow; feature: FeatureRow } | null>(null);
+
+  // Per-feature ticket drafts + edit state
+  const [ticketDrafts, setTicketDrafts] = useState<Record<string, TicketDraft>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editDeadline, setEditDeadline] = useState("");
+
   const supabase = createClient();
 
   const load = useCallback(async () => {
@@ -74,14 +106,50 @@ export default function FeaturesBoard() {
       const { error } = await supabase.from("features").insert({
         name: name.trim(),
         description: description.trim(),
+        deadline: deadline || null,
         author_name: displayName(user),
       });
       if (!error) {
         await recordHistory(supabase, user, "added_feature", "feature", name.trim(), {
           description: description.trim(),
+          deadline: deadline || null,
         });
         setName("");
         setDescription("");
+        setDeadline("");
+        setShowAddForm(false);
+        await load();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startEdit(feature: FeatureRow) {
+    setEditingId(feature.id);
+    setEditName(feature.name);
+    setEditDescription(feature.description);
+    setEditDeadline(feature.deadline ?? "");
+  }
+
+  async function saveEdit(feature: FeatureRow) {
+    if (!editName.trim() || busy) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from("features")
+        .update({
+          name: editName.trim(),
+          description: editDescription.trim(),
+          deadline: editDeadline || null,
+        })
+        .eq("id", feature.id);
+      if (!error) {
+        await recordHistory(supabase, user, "updated_feature", "feature", editName.trim(), {
+          description: editDescription.trim(),
+          deadline: editDeadline || null,
+        });
+        setEditingId(null);
         await load();
       }
     } finally {
@@ -90,20 +158,20 @@ export default function FeaturesBoard() {
   }
 
   async function addTicket(feature: FeatureRow) {
-    const title = (ticketDrafts[feature.id] ?? "").trim();
+    const draft = ticketDrafts[feature.id] ?? { title: "", description: "" };
+    const title = draft.title.trim();
     if (!title || busy) return;
     setBusy(true);
     try {
       const { error } = await supabase.from("tickets").insert({
         feature_id: feature.id,
         title,
+        description: draft.description.trim(),
         author_name: displayName(user),
       });
       if (!error) {
-        await recordHistory(supabase, user, "added_ticket", "ticket", title, {
-          feature: feature.name,
-        });
-        setTicketDrafts((d) => ({ ...d, [feature.id]: "" }));
+        await recordHistory(supabase, user, "added_ticket", "ticket", title, { feature: feature.name });
+        setTicketDrafts((d) => ({ ...d, [feature.id]: { title: "", description: "" } }));
         await load();
       }
     } finally {
@@ -111,82 +179,28 @@ export default function FeaturesBoard() {
     }
   }
 
-  function toggleTicket(ticket: TicketRow, feature: FeatureRow) {
-    if (!ticket.done) {
-      // Completing: ask for a work note first (popup)
-      setCompleting({ ticket, feature });
-      return;
-    }
-    reopenTicket(ticket, feature);
-  }
-
-  async function reopenTicket(ticket: TicketRow, feature: FeatureRow) {
+  async function completeFeature(feature: FeatureRow) {
     const { error } = await supabase
-      .from("tickets")
-      .update({ done: false })
-      .eq("id", ticket.id);
+      .from("features")
+      .update({
+        done: true,
+        completed_by: user?.id ?? null,
+        completed_name: displayName(user),
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", feature.id);
     if (!error) {
-      await recordHistory(supabase, user, "reopened_ticket", "ticket", ticket.title, { feature: feature.name });
+      await recordHistory(supabase, user, "completed_feature", "feature", feature.name);
       await load();
     }
   }
 
-  async function completeTicket(note: string) {
-    if (!completing) return;
-    const { ticket, feature } = completing;
-    setCompleting(null);
+  async function reopenFeature(feature: FeatureRow) {
     const { error } = await supabase
-      .from("tickets")
-      .update({ done: true })
-      .eq("id", ticket.id);
+      .from("features")
+      .update({ done: false, completed_by: null, completed_name: null, completed_at: null })
+      .eq("id", feature.id);
     if (!error) {
-      await recordHistory(supabase, user, "completed_ticket", "ticket", ticket.title, { feature: feature.name });
-      if (note) {
-        await addNote(supabase, user, ticket.title, note, "ticket");
-      }
-      await load();
-    }
-  }
-
-  async function deleteTicket(ticket: TicketRow, feature: FeatureRow) {
-    if (!window.confirm(`Delete ticket "${ticket.title}"? It will be recorded in History.`)) return;
-    const { error } = await supabase.from("tickets").delete().eq("id", ticket.id);
-    if (!error) {
-      await recordHistory(supabase, user, "deleted_ticket", "ticket", ticket.title, {
-        feature: feature.name,
-        done: ticket.done,
-      });
-      await load();
-    }
-  }
-
-  async function takeTicket(ticket: TicketRow, feature: FeatureRow) {
-    if (!user) return;
-    // .is() guard prevents stealing a ticket someone claimed a moment ago
-    const { error } = await supabase
-      .from("tickets")
-      .update({ owner_id: user.id, owner_name: displayName(user) })
-      .eq("id", ticket.id)
-      .is("owner_id", null);
-    if (!error) {
-      await recordHistory(supabase, user, "took_ticket", "ticket", ticket.title, {
-        feature: feature.name,
-      });
-      await load();
-    }
-  }
-
-  async function dropTicket(ticket: TicketRow, feature: FeatureRow) {
-    if (!user) return;
-    const { error } = await supabase
-      .from("tickets")
-      .update({ owner_id: null, owner_name: null })
-      .eq("id", ticket.id)
-      .eq("owner_id", user.id);
-    if (!error) {
-      await recordHistory(supabase, user, "dropped_ticket", "ticket", ticket.title, {
-        feature: feature.name,
-      });
       await load();
     }
   }
@@ -194,8 +208,6 @@ export default function FeaturesBoard() {
   async function archiveFeature(feature: FeatureRow) {
     if (!window.confirm(`Archive feature "${feature.name}"? It and its tickets move to History.`)) return;
     const featureTickets = tickets.filter((t) => t.feature_id === feature.id);
-    // Snapshot goes into history first so nothing is lost, then delete
-    // (tickets cascade-delete with the feature).
     await recordHistory(supabase, user, "archived_feature", "feature", feature.name, {
       description: feature.description,
       author_name: feature.author_name,
@@ -203,17 +215,11 @@ export default function FeaturesBoard() {
       tickets: featureTickets.map((t) => ({ title: t.title, done: t.done, author_name: t.author_name })),
     });
     const { error } = await supabase.from("features").delete().eq("id", feature.id);
-    if (!error) {
-      await load();
-    }
+    if (!error) await load();
   }
 
-  if (state === "loading") {
-    return <p className="card-desc">Loading features...</p>;
-  }
-  if (state === "no-tables") {
-    return <SetupNotice />;
-  }
+  if (state === "loading") return <p className="card-desc">Loading features...</p>;
+  if (state === "no-tables") return <SetupNotice />;
   if (state === "error") {
     return (
       <p className="card-desc" style={{ color: "#d32f2f" }} data-testid="features-error">
@@ -222,146 +228,225 @@ export default function FeaturesBoard() {
     );
   }
 
+  const visibleFeatures = features.filter((f) => (subTab === "completed" ? f.done : !f.done));
+  const activeCount = features.filter((f) => !f.done).length;
+  const completedCount = features.length - activeCount;
+
   return (
     <div data-testid="features-board">
-      {completing && (
-        <TicketNoteModal
-          ticketTitle={completing.ticket.title}
-          onComplete={completeTicket}
-          onCancel={() => setCompleting(null)}
-        />
-      )}
-
-      {/* Add feature form */}
-      <form onSubmit={addFeature} style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "24px" }}>
-        <input
-          className="input-field"
-          placeholder="Feature name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={120}
-          data-testid="feature-name-input"
-        />
-        <textarea
-          className="input-field"
-          placeholder="Description — what is this feature?"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={2}
-          maxLength={1000}
-          data-testid="feature-desc-input"
-        />
-        <button type="submit" className="btn-primary" disabled={!name.trim() || busy} data-testid="add-feature-btn" style={{ alignSelf: "flex-start" }}>
+      {/* Add feature — collapsible box */}
+      {!showAddForm ? (
+        <button
+          className="btn-primary"
+          onClick={() => setShowAddForm(true)}
+          data-testid="show-feature-form-btn"
+          style={{ marginBottom: "24px" }}
+        >
           + Add Feature
         </button>
-      </form>
-
-      {features.length === 0 && (
-        <p className="card-desc" data-testid="features-empty">No features yet. Add the first one above.</p>
+      ) : (
+        <form onSubmit={addFeature} className="card" style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "24px" }}>
+          <input
+            className="input-field"
+            placeholder="Feature name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={120}
+            autoFocus
+            data-testid="feature-name-input"
+          />
+          <textarea
+            className="input-field"
+            placeholder="Description — what is this feature?"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            maxLength={1000}
+            data-testid="feature-desc-input"
+          />
+          <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "8px" }}>
+            Deadline
+            <input
+              type="date"
+              className="input-field"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              style={{ width: "auto" }}
+              data-testid="feature-deadline-input"
+            />
+          </label>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button type="submit" className="btn-primary" disabled={!name.trim() || busy} data-testid="add-feature-btn">
+              Add Feature
+            </button>
+            <button type="button" className="btn-ghost" onClick={() => setShowAddForm(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        {features.map((feature) => {
+      {/* Active / Completed sub-tabs */}
+      <div className="subtabs-nav" role="tablist" aria-label="Feature status">
+        <button
+          className={`subtab-btn ${subTab === "active" ? "active" : ""}`}
+          onClick={() => setSubTab("active")}
+          data-testid="features-subtab-active"
+        >
+          Active ({activeCount})
+        </button>
+        <button
+          className={`subtab-btn ${subTab === "completed" ? "active" : ""}`}
+          onClick={() => setSubTab("completed")}
+          data-testid="features-subtab-completed"
+        >
+          Completed ({completedCount})
+        </button>
+      </div>
+
+      {visibleFeatures.length === 0 && (
+        <p className="card-desc" data-testid="features-empty">
+          {subTab === "active" ? "No active features. Add one above." : "No completed features yet."}
+        </p>
+      )}
+
+      <div className="two-col-grid">
+        {visibleFeatures.map((feature) => {
           const featureTickets = tickets.filter((t) => t.feature_id === feature.id);
           const doneCount = featureTickets.filter((t) => t.done).length;
+          const overdue = isOverdue(feature.deadline, feature.done);
+          const editing = editingId === feature.id;
+          const draft = ticketDrafts[feature.id] ?? { title: "", description: "" };
 
           return (
             <div className="card" key={feature.id} data-testid={`feature-${feature.id}`}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap" }}>
-                <div style={{ minWidth: 0 }}>
-                  <h3 className="card-title" style={{ overflowWrap: "anywhere" }}>{feature.name}</h3>
+              {editing ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <input
+                    className="input-field"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    maxLength={120}
+                    data-testid={`edit-feature-name-${feature.id}`}
+                  />
+                  <textarea
+                    className="input-field"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={2}
+                    maxLength={1000}
+                  />
+                  <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "8px" }}>
+                    Deadline
+                    <input
+                      type="date"
+                      className="input-field"
+                      value={editDeadline}
+                      onChange={(e) => setEditDeadline(e.target.value)}
+                      style={{ width: "auto" }}
+                    />
+                  </label>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button className="btn-primary" onClick={() => saveEdit(feature)} disabled={!editName.trim() || busy} style={{ padding: "6px 14px" }}>
+                      Save
+                    </button>
+                    <button className="btn-ghost" onClick={() => setEditingId(null)}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
+                    <h3 className="card-title" style={{ overflowWrap: "anywhere", marginBottom: 0 }}>
+                      {feature.done && "✅ "}{feature.name}
+                    </h3>
+                    {feature.deadline && (
+                      <span className={`deadline-pill ${overdue ? "overdue" : ""}`} style={{ flexShrink: 0 }}>
+                        {overdue ? "⚠ Due " : "Due "}{formatDate(feature.deadline)}
+                      </span>
+                    )}
+                  </div>
                   {feature.description && (
-                    <p className="card-desc" style={{ overflowWrap: "anywhere" }}>{feature.description}</p>
+                    <p className="card-desc" style={{ overflowWrap: "anywhere", marginTop: "6px" }}>{feature.description}</p>
                   )}
                   <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "6px" }}>
                     by <strong>{nameFor(profiles, feature.created_by, feature.author_name)}</strong> · {formatTime(feature.created_at)}
                     {featureTickets.length > 0 && <> · {doneCount}/{featureTickets.length} tickets done</>}
+                    {feature.done && feature.completed_at && (
+                      <> · completed by <strong>{nameFor(profiles, feature.completed_by, feature.completed_name)}</strong></>
+                    )}
                   </p>
-                </div>
-                <button className="btn-ghost" onClick={() => archiveFeature(feature)} data-testid={`archive-feature-${feature.id}`}>
-                  🗃 Archive
-                </button>
-              </div>
 
-              {/* Tickets for this feature */}
-              <div style={{ marginTop: "14px", borderTop: "1px solid var(--border-color)", paddingTop: "12px" }}>
-                {featureTickets.length === 0 && (
-                  <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>No tickets yet — add the tasks needed to build this.</p>
-                )}
-                {featureTickets.map((ticket) => (
-                  <div key={ticket.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "6px 0" }}>
-                    <input
-                      type="checkbox"
-                      checked={ticket.done}
-                      onChange={() => toggleTicket(ticket, feature)}
-                      aria-label={`Mark "${ticket.title}" ${ticket.done ? "open" : "done"}`}
-                      style={{ width: "16px", height: "16px", cursor: "pointer", flexShrink: 0 }}
-                    />
-                    <span style={{
-                      fontSize: "0.9rem",
-                      flexGrow: 1,
-                      overflowWrap: "anywhere",
-                      textDecoration: ticket.done ? "line-through" : "none",
-                      color: ticket.done ? "var(--text-secondary)" : "var(--text-primary)",
-                    }}>
-                      {ticket.title}
-                    </span>
-                    {ticket.owner_id ? (
-                      <span style={{ fontSize: "0.7rem", color: "var(--text-secondary)", flexShrink: 0, whiteSpace: "nowrap" }}>
-                        👤 {nameFor(profiles, ticket.owner_id, ticket.owner_name)}
-                      </span>
-                    ) : null}
-                    {!ticket.owner_id && user && (
-                      <button
-                        className="btn-ghost"
-                        onClick={() => takeTicket(ticket, feature)}
-                        style={{ padding: "2px 8px", flexShrink: 0 }}
-                      >
-                        Take
+                  <div style={{ display: "flex", gap: "8px", marginTop: "10px", flexWrap: "wrap" }}>
+                    {!feature.done ? (
+                      <>
+                        <button className="btn-ghost" onClick={() => completeFeature(feature)} data-testid={`complete-feature-${feature.id}`}>
+                          ✓ Complete
+                        </button>
+                        <button className="btn-ghost" onClick={() => startEdit(feature)} data-testid={`edit-feature-${feature.id}`}>
+                          ✎ Edit
+                        </button>
+                      </>
+                    ) : (
+                      <button className="btn-ghost" onClick={() => reopenFeature(feature)} data-testid={`reopen-feature-${feature.id}`}>
+                        ↺ Reopen
                       </button>
                     )}
-                    {ticket.owner_id === user?.id && (
-                      <button
-                        className="btn-ghost"
-                        onClick={() => dropTicket(ticket, feature)}
-                        style={{ padding: "2px 8px", flexShrink: 0 }}
-                      >
-                        Drop
-                      </button>
-                    )}
-                    <button
-                      className="btn-ghost"
-                      onClick={() => deleteTicket(ticket, feature)}
-                      aria-label={`Delete ticket ${ticket.title}`}
-                      style={{ padding: "2px 8px" }}
-                    >
-                      ✕
+                    <button className="btn-ghost" onClick={() => archiveFeature(feature)} data-testid={`archive-feature-${feature.id}`}>
+                      🗃 Archive
                     </button>
                   </div>
+                </>
+              )}
+
+              {/* Tickets */}
+              <div style={{ marginTop: "14px", borderTop: "1px solid var(--border-color)", paddingTop: "6px" }}>
+                {featureTickets.length === 0 && (
+                  <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", padding: "6px 0" }}>
+                    No tickets yet — add the tasks needed to build this.
+                  </p>
+                )}
+                {featureTickets.map((ticket) => (
+                  <TicketItem
+                    key={ticket.id}
+                    ticket={ticket}
+                    featureName={feature.name}
+                    user={user}
+                    profiles={profiles}
+                    onChanged={load}
+                    showDelete
+                  />
                 ))}
 
-                <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-                  <input
-                    className="input-field"
-                    placeholder="New ticket (task for this feature)"
-                    value={ticketDrafts[feature.id] ?? ""}
-                    onChange={(e) => setTicketDrafts((d) => ({ ...d, [feature.id]: e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addTicket(feature);
-                      }
-                    }}
-                    maxLength={200}
-                  />
-                  <button
-                    className="btn-primary"
-                    onClick={() => addTicket(feature)}
-                    disabled={!(ticketDrafts[feature.id] ?? "").trim() || busy}
-                  >
-                    Add
-                  </button>
-                </div>
+                {!feature.done && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "10px" }}>
+                    <input
+                      className="input-field"
+                      placeholder="New ticket title"
+                      value={draft.title}
+                      onChange={(e) => setTicketDrafts((d) => ({ ...d, [feature.id]: { ...draft, title: e.target.value } }))}
+                      maxLength={200}
+                      data-testid={`ticket-title-input-${feature.id}`}
+                    />
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        className="input-field"
+                        placeholder="Description (optional)"
+                        value={draft.description}
+                        onChange={(e) => setTicketDrafts((d) => ({ ...d, [feature.id]: { ...draft, description: e.target.value } }))}
+                        maxLength={1000}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTicket(feature); } }}
+                      />
+                      <button
+                        className="btn-primary"
+                        onClick={() => addTicket(feature)}
+                        disabled={!draft.title.trim() || busy}
+                        style={{ flexShrink: 0 }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );
